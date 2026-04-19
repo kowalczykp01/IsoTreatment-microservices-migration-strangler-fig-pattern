@@ -198,12 +198,12 @@ namespace IsoTreatmentProcessSupportAPI.Services
                 new Claim(ClaimTypes.Email, $"{email}")
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authenticationSettings.JwtKey));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authenticationSettings.SigningKey));
             var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.Now.AddHours(_authenticationSettings.JwtExpireHours);
+            var expires = DateTime.Now.Add(_authenticationSettings.Expiry ?? TimeSpan.FromHours(1));
 
-            var token = new JwtSecurityToken(_authenticationSettings.JwtIssuer,
-                _authenticationSettings.JwtIssuer,
+            var token = new JwtSecurityToken(_authenticationSettings.Issuer,
+                _authenticationSettings.Issuer,
                 claims,
                 expires: expires,
                 signingCredentials: cred);
@@ -233,22 +233,24 @@ namespace IsoTreatmentProcessSupportAPI.Services
                 throw new BadRequestException("Invalid username or password");
             }
 
-            var claims = new List<Claim>()
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, $"{user.FirstName}"),
-                new Claim(ClaimTypes.Email, $"{user.Email}")
-            };
+            var issuer = _authenticationSettings.Issuer;
+        var audience = _authenticationSettings.Audience;
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user.Id.ToString()) };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authenticationSettings.JwtKey));
-            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.Now.AddHours(1);
+        var expires = DateTime.Now.Add(_authenticationSettings.Expiry ?? TimeSpan.FromHours(1));
 
-            var token = new JwtSecurityToken(_authenticationSettings.JwtIssuer,
-                _authenticationSettings.JwtIssuer,
-                claims,
-                expires: expires,
-                signingCredentials: cred);
+        var signingCredentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authenticationSettings.SigningKey)),
+            SecurityAlgorithms.HmacSha256
+        );
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            expires: expires,
+            signingCredentials: signingCredentials
+        );
 
             var tokenHandler = new JwtSecurityTokenHandler();
             return tokenHandler.WriteToken(token);

@@ -5,7 +5,7 @@ namespace IsoTreatmentProcessSupportAPI.Entities
 {
     public class IsoSupportDbContext : DbContext
     {
-        private string _connectionString = "Server=(localdb)\\mssqllocaldb;Database=IsoTreatmentProcessSupport;Trusted_Connection=True;";
+        private string _connectionString = "Server=localhost;Database=IsoTreatmentProcessSupport;User Id=sa;Password=boxsy2-xobpyp-tonmUs;Encrypt=true;TrustServerCertificate=true;";
         public DbSet<User> Users { get; set; }
         public DbSet<Entry> Entries { get; set; }
         public DbSet<Reminder> Reminders { get; set; }

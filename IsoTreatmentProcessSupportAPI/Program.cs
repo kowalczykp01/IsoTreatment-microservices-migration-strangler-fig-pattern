@@ -24,22 +24,20 @@ builder.Configuration.GetSection("Authentication").Bind(authenticationSettings);
 builder.Services.AddSingleton(authenticationSettings);
 builder.Services.AddAuthentication(option =>
 {
-    option.DefaultAuthenticateScheme = "Bearer";
-    option.DefaultScheme = "Bearer";
-    option.DefaultChallengeScheme = "Bearer";
+    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddCookie(x =>
 {
     x.Cookie.Name = "token";
 
 }).AddJwtBearer(cfg =>
 {
-    cfg.RequireHttpsMetadata = false;
     cfg.SaveToken = true;
+    cfg.Audience = authenticationSettings.Audience;
     cfg.TokenValidationParameters = new TokenValidationParameters()
     {
-        ValidIssuer = authenticationSettings.JwtIssuer,
-        ValidAudience = authenticationSettings.JwtIssuer,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authenticationSettings.JwtKey)),
+        ValidIssuer = authenticationSettings.Issuer,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authenticationSettings.SigningKey)),
     };
     cfg.Events = new JwtBearerEvents
     {

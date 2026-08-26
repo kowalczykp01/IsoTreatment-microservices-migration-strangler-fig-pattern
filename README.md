@@ -46,14 +46,15 @@ The moving parts:
 ## Repository layout
 
 ```
-IsoTreatmentProcessSupportAPI/   the monolith
+IsoTreatmentProcessSupportAPI/   the monolith, with its Dockerfile
 tests/                           characterization tests capturing current behaviour
+docker-compose.yml               the monolith and SQL Server
 ```
 
 ## Progress
 
 - [x] **Phase 0** — characterization tests around the reminder API
-- [ ] **Phase 1** — containerize the monolith as it is
+- [x] **Phase 1** — containerize the monolith as it is
 - [ ] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
 - [ ] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
 - [ ] **Phase 4** — the Treatment service
@@ -61,10 +62,60 @@ tests/                           characterization tests capturing current behavi
 - [ ] **Phase 6** — switch reminder traffic to the Treatment service
 - [ ] **Phase 7** — remove reminder code from the monolith
 
+## Running the application
+
+Docker is the only prerequisite — the monolith and SQL Server both run in containers.
+
+Create a `.env` file in the repository root with the two secrets Compose expects:
+
+```
+MSSQL_SA_PASSWORD=<password meeting SQL Server complexity rules>
+AUTHENTICATION_SIGNING_KEY=<HMAC key used to sign and validate JWTs>
+```
+
+Then bring the stack up:
+
+```
+docker compose up -d --build
+```
+
+Compose waits for SQL Server to report healthy before it starts the monolith, so the first
+run takes about a minute. On Apple Silicon the database runs under emulation; the Compose
+file pins it to `linux/amd64` because SQL Server has no arm64 image.
+
+### Applying the database schema
+
+**The schema is not created automatically.** The monolith does not run migrations at
+startup, deliberately: keeping migration logic out of its code means the only change the
+migration required of the monolith was moving the connection string into configuration.
+
+Apply the migrations from the host, against the port Compose publishes:
+
+```
+set -a; . ./.env; set +a
+ConnectionStrings__IsoSupportDb="Server=localhost,14330;Database=IsoTreatmentProcessSupport;User Id=sa;Password=$MSSQL_SA_PASSWORD;Encrypt=true;TrustServerCertificate=true;" \
+  dotnet ef database update --project IsoTreatmentProcessSupportAPI
+```
+
+This needs the EF Core tools (`dotnet tool install --global dotnet-ef`). It is a one-off
+step, but it has to be repeated whenever the `mssql-data` volume is removed, because the
+database disappears with it.
+
+### Checking that it works
+
+| Request | Expected |
+| --- | --- |
+| `GET localhost:8080/swagger/index.html` | 200 — the application started |
+| `GET localhost:8080/api/reminder` | 401 — routing and authentication are wired |
+| `POST localhost:8080/api/user/login` with unknown credentials | 400 — the application reached the database |
+
+A 500 on the last one means the database is unreachable or the schema was never applied.
+That distinction is worth remembering: both cases look identical from the outside.
+
 ## Running the tests
 
-The characterization tests start a real SQL Server in a throwaway container, so Docker has
-to be running:
+The characterization tests start their own throwaway SQL Server container, independent of
+the Compose stack, so Docker has to be running:
 
 ```
 dotnet test tests/IsoTreatmentProcessSupportAPI.CharacterizationTests

@@ -55,7 +55,7 @@ docker-compose.yml               the monolith and SQL Server
 
 - [x] **Phase 0** — characterization tests around the reminder API
 - [x] **Phase 1** — containerize the monolith as it is
-- [ ] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
+- [x] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
 - [ ] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
 - [ ] **Phase 4** — the Treatment service
 - [ ] **Phase 5** — contract tests comparing old and new responses

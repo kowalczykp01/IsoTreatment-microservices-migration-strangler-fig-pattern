@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IsoTreatmentProcessSupportAPI.CharacterizationTests", "tests\IsoTreatmentProcessSupportAPI.CharacterizationTests\IsoTreatmentProcessSupportAPI.CharacterizationTests.csproj", "{A78BA8C0-F9E7-45B5-809A-8E4BCDD72516}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "ApiGateway\ApiGateway.csproj", "{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,18 @@ Global
 		{A78BA8C0-F9E7-45B5-809A-8E4BCDD72516}.Release|x64.Build.0 = Release|Any CPU
 		{A78BA8C0-F9E7-45B5-809A-8E4BCDD72516}.Release|x86.ActiveCfg = Release|Any CPU
 		{A78BA8C0-F9E7-45B5-809A-8E4BCDD72516}.Release|x86.Build.0 = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|x64.Build.0 = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Debug|x86.Build.0 = Debug|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|x64.ActiveCfg = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|x64.Build.0 = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|x86.ActiveCfg = Release|Any CPU
+		{A42048D8-1D59-4A1A-95A2-DEBCFD9A962D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

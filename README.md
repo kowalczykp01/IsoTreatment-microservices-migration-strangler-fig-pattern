@@ -47,8 +47,10 @@ The moving parts:
 
 ```
 IsoTreatmentProcessSupportAPI/   the monolith, with its Dockerfile
+ApiGateway/                      the YARP reverse proxy
 tests/                           characterization tests capturing current behaviour
-docker-compose.yml               the monolith and SQL Server
+docker-compose.yml               gateway, monolith, SQL Server, Jaeger
+IsoTreatment.http                ready-made requests for the whole stack
 ```
 
 ## Progress
@@ -56,7 +58,7 @@ docker-compose.yml               the monolith and SQL Server
 - [x] **Phase 0** — characterization tests around the reminder API
 - [x] **Phase 1** — containerize the monolith as it is
 - [x] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
-- [ ] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
+- [x] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
 - [ ] **Phase 4** — the Treatment service
 - [ ] **Phase 5** — contract tests comparing old and new responses
 - [ ] **Phase 6** — switch reminder traffic to the Treatment service
@@ -66,22 +68,31 @@ docker-compose.yml               the monolith and SQL Server
 
 Docker is the only prerequisite — the monolith and SQL Server both run in containers.
 
-Create a `.env` file in the repository root with the two secrets Compose expects:
+Copy `.env.example` to `.env` and fill it in — it documents every variable Compose
+expects and why. Only the SMTP entries are optional; without them registration and
+password reset return 500, and nothing else is affected.
 
 ```
-MSSQL_SA_PASSWORD=<password meeting SQL Server complexity rules>
-AUTHENTICATION_SIGNING_KEY=<HMAC key used to sign and validate JWTs>
-```
-
-Then bring the stack up:
-
-```
+cp .env.example .env
 docker compose up -d --build
 ```
 
 Compose waits for SQL Server to report healthy before it starts the monolith, so the first
 run takes about a minute. On Apple Silicon the database runs under emulation; the Compose
 file pins it to `linux/amd64` because SQL Server has no arm64 image.
+
+Four services come up:
+
+| Address | What |
+| --- | --- |
+| `localhost:8080` | the YARP gateway — the address the frontend uses |
+| `localhost:8081` | the monolith directly, for comparing against the gateway |
+| `localhost:16686` | Jaeger UI |
+| `localhost:14330` | SQL Server |
+
+Note that `--build` rebuilds images, while a plain `docker compose up -d` only recreates
+containers. Changing a value in `.env` needs the latter; changing code or packages needs
+the former.
 
 ### Applying the database schema
 
@@ -111,6 +122,34 @@ database disappears with it.
 
 A 500 on the last one means the database is unreachable or the schema was never applied.
 That distinction is worth remembering: both cases look identical from the outside.
+
+## Distributed tracing
+
+The gateway and the monolith are instrumented with OpenTelemetry and export over OTLP to
+Jaeger at `localhost:16686`. Service names and the exporter endpoint come from environment
+variables in the Compose file — the OpenTelemetry SDK reads `OTEL_SERVICE_NAME` and
+`OTEL_EXPORTER_OTLP_ENDPOINT` by itself, so neither name appears anywhere in application
+code.
+
+Send a request through the gateway and one trace should span both services and the SQL
+query underneath:
+
+```
+gateway   GET {**catch-all}          117.38 ms
+gateway   GET                        116.50 ms
+monolith  GET api/reminder           115.47 ms
+monolith  SELECT [u].[Id] ...          6.29 ms
+```
+
+That single SQL span is the baseline for Phase 6: reading reminders costs exactly one
+query today, because ReminderService loads them through `Users.Include(u => u.Reminders)`.
+Once the Treatment service serves the same endpoint, the same trace shows whether the
+extracted implementation is equivalent in cost, not just in output.
+
+Tracing is not on the critical path. Stopping the Jaeger container leaves every endpoint
+working; exports fail silently in the background. That is worth knowing both ways — it
+means instrumentation adds no new point of failure, and it means an empty Jaeger UI gives
+no clue about why.
 
 ## Running the tests
 

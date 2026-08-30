@@ -1,45 +1,17 @@
-### =========================================================================
-### IsoTreatment - requests for the Strangler Fig migration stack
-###
-### Stack:  docker compose up -d --build
-###   @gateway  :8080   YARP - the address the frontend uses
-###   @monolith :8081   the monolith directly, for A/B comparison
-###   Jaeger UI http://localhost:16686
-###
-### The API reads the JWT from an HttpOnly cookie named "token",
-### never from an Authorization header.
-###
-### To mint a token without going through registration (user id 1),
-### run from the repository root:
-###
-###   set -a; . ./.env; set +a
-###   b64u() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
-###   H=$(printf '%s' '{"alg":"HS256","typ":"JWT"}' | b64u)
-###   P=$(printf '{"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"1","exp":%s,"iss":"isotreatment-users-issuer","aud":"isotreatment-users-audience"}' $(( $(date +%s) + 3600 )) | b64u)
-###   S=$(printf '%s' "$H.$P" | openssl dgst -sha256 -hmac "$AUTHENTICATION_SIGNING_KEY" -binary | b64u)
-###   echo "$H.$P.$S"
-### =========================================================================
-
 @gateway = http://localhost:8080
 @monolith = http://localhost:8081
 @token = PASTE_TOKEN_HERE
 
-
-### =========================================================================
-### 1. Smoke tests - no authentication required
-### =========================================================================
-
-### Swagger is up  ->  200
+### Swagger
 GET {{gateway}}/swagger/index.html
 
-### No cookie  ->  401, proves routing and authentication are wired
+### Reminders without a token
 GET {{gateway}}/api/reminder
 
-### Unknown path  ->  404
+### Unknown path
 GET {{gateway}}/nie-ma-takiej-sciezki
 
-### Unknown credentials  ->  400 "Invalid username or password"
-### A 500 here means the database is unreachable or migrations never ran.
+### Login with unknown credentials
 POST {{gateway}}/api/user/login
 Content-Type: application/json
 
@@ -47,15 +19,6 @@ Content-Type: application/json
   "email": "brak@example.com",
   "password": "brak"
 }
-
-
-### =========================================================================
-### 2. User lifecycle
-###
-### Registration sends a confirmation e-mail and leaves EmailConfirmed = false,
-### so login fails until the account is confirmed. For local work it is easier
-### to seed a user with SQL and mint a token (see the header of this file).
-### =========================================================================
 
 ### Register
 POST {{gateway}}/api/user/register
@@ -73,11 +36,10 @@ Content-Type: application/json
   "medicationStartDate": "2024-01-01T00:00:00"
 }
 
-### Confirm the e-mail (token arrives by e-mail)
+### Confirm email
 POST {{gateway}}/api/user/confirmEmail?emailConfirmationToken=PASTE_CONFIRMATION_TOKEN
 
-### Log in - the JWT comes back in a Set-Cookie header, not in the body
-# @name login
+### Login
 POST {{gateway}}/api/user/login
 Content-Type: application/json
 
@@ -86,11 +48,11 @@ Content-Type: application/json
   "password": "Haslo123!"
 }
 
-### Current user  ->  200
+### Current user
 GET {{gateway}}/api/user/info
 Cookie: token={{token}}
 
-### Update the current user  ->  200
+### Update current user
 POST {{gateway}}/api/user/info/update
 Content-Type: application/json
 Cookie: token={{token}}
@@ -104,24 +66,15 @@ Cookie: token={{token}}
   "dailyDose": 40
 }
 
-### Log out - clears the cookie
+### Logout
 POST {{gateway}}/api/user/logout
 Cookie: token={{token}}
 
-
-### =========================================================================
-### 3. Reminders through the gateway
-###
-### This is the slice being extracted into the Treatment service.
-### Note: POST returns 200 with no Location header, not 201.
-### Time serializes as "08:00" (pl-PL culture), not "08:00:00".
-### =========================================================================
-
-### List  ->  200
+### Reminders — list
 GET {{gateway}}/api/reminder
 Cookie: token={{token}}
 
-### Create  ->  200 {"id":N,"time":"08:00"}
+### Reminders — create
 POST {{gateway}}/api/reminder
 Content-Type: application/json
 Cookie: token={{token}}
@@ -130,11 +83,11 @@ Cookie: token={{token}}
   "time": "08:00"
 }
 
-### Read one  ->  200
+### Reminders — get one
 GET {{gateway}}/api/reminder/1
 Cookie: token={{token}}
 
-### Update  ->  200
+### Reminders — update
 PUT {{gateway}}/api/reminder/1
 Content-Type: application/json
 Cookie: token={{token}}
@@ -143,28 +96,19 @@ Cookie: token={{token}}
   "time": "21:15"
 }
 
-### Delete  ->  204 with an empty body
+### Reminders — delete
 DELETE {{gateway}}/api/reminder/1
 Cookie: token={{token}}
 
-### Missing reminder  ->  404 "Reminder not found", plain text, no Content-Type
+### Reminders — missing id
 GET {{gateway}}/api/reminder/999999
 Cookie: token={{token}}
 
-
-### =========================================================================
-### 4. The same reminders, straight to the monolith
-###
-### Run these next to the ones above: the gateway is transparent only if the
-### status, the body and the headers match. This pair becomes the contract
-### test in Phase 5, with the Treatment service on one side.
-### =========================================================================
-
-### List  ->  must be identical to the gateway response
+### Reminders — list, monolith directly
 GET {{monolith}}/api/reminder
 Cookie: token={{token}}
 
-### Create
+### Reminders — create, monolith directly
 POST {{monolith}}/api/reminder
 Content-Type: application/json
 Cookie: token={{token}}
@@ -173,20 +117,11 @@ Cookie: token={{token}}
   "time": "20:30"
 }
 
-### Missing reminder  ->  404
-GET {{monolith}}/api/reminder/999999
-Cookie: token={{token}}
-
-
-### =========================================================================
-### 5. Diary entries
-### =========================================================================
-
-### List  ->  200
+### Entries — list
 GET {{gateway}}/api/entry
 Cookie: token={{token}}
 
-### Create  ->  200
+### Entries — create
 POST {{gateway}}/api/entry
 Content-Type: application/json
 Cookie: token={{token}}
@@ -196,7 +131,7 @@ Cookie: token={{token}}
   "date": "2026-08-28T00:00:00"
 }
 
-### Update  ->  200
+### Entries — update
 PUT {{gateway}}/api/entry/1
 Content-Type: application/json
 Cookie: token={{token}}
@@ -205,66 +140,28 @@ Cookie: token={{token}}
   "content": "Corrected note."
 }
 
-### Delete  ->  204
+### Entries — delete
 DELETE {{gateway}}/api/entry/1
 Cookie: token={{token}}
 
-
-### =========================================================================
-### 6. Treatment process calculation
-### =========================================================================
-
-### Stateless calculation from the user's pharmacological parameters  ->  200
+### Treatment process
 GET {{gateway}}/api/treatment-process
 Cookie: token={{token}}
 
-
-### =========================================================================
-### 7. CORS preflight
-###
-### Both ports must answer identically, with exactly ONE
-### Access-Control-Allow-Origin header. Two of them means CORS was added to
-### the gateway as well - which breaks browsers while leaving curl happy.
-### =========================================================================
-
-### Preflight through the gateway  ->  204
+### CORS preflight — gateway
 OPTIONS {{gateway}}/api/reminder
 Origin: http://localhost:5173
 Access-Control-Request-Method: GET
 
-### Preflight straight to the monolith  ->  204, same headers
+### CORS preflight — monolith
 OPTIONS {{monolith}}/api/reminder
 Origin: http://localhost:5173
 Access-Control-Request-Method: GET
 
-
-### =========================================================================
-### 8. Authentication edge cases
-### =========================================================================
-
-### Token in the Authorization header instead of the cookie  ->  401
-### The monolith only ever reads the cookie. The Treatment service will have
-### to accept both, because the Branch by Abstraction path uses the header.
+### Token in the Authorization header
 GET {{gateway}}/api/reminder
 Authorization: Bearer {{token}}
 
-### Malformed token  ->  401
+### Malformed token
 GET {{gateway}}/api/reminder
 Cookie: token=not.a.jwt
-
-
-### =========================================================================
-### 9. Generating traffic for Jaeger
-###
-### Fire these, then open http://localhost:16686 and look for ONE trace
-### spanning gateway -> monolith -> SQL. Two unlinked traces mean the
-### traceparent header is not being propagated across the proxy.
-### =========================================================================
-
-### Through the gateway - should produce a two-service trace
-GET {{gateway}}/api/reminder
-Cookie: token={{token}}
-
-### Straight to the monolith - should produce a single-service trace
-GET {{monolith}}/api/reminder
-Cookie: token={{token}}

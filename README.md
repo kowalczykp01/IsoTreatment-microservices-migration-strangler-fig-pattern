@@ -36,7 +36,8 @@ same service, and renaming a running service is exactly the cost this naming avo
 The moving parts:
 
 - the monolith, whose reminder code stays untouched until the final cleanup step,
-- the Treatment service, sharing the monolith's database as a bridge,
+- the Treatment service, laid out as Domain, Application, Infrastructure and Api, and
+  sharing the monolith's database as a bridge,
 - **YARP** as a reverse proxy at the system boundary — the single place where the decision
   "who serves this request" is made,
 - **Jaeger** for distributed tracing, so that switching traffic is observable rather than
@@ -46,11 +47,15 @@ The moving parts:
 ## Repository layout
 
 ```
-IsoTreatmentProcessSupportAPI/   the monolith, with its Dockerfile
+IsoTreatmentProcessSupportAPI/   the monolith
 ApiGateway/                      the YARP reverse proxy
+TreatmentService/                the extracted service — Domain, Application,
+                                 Infrastructure, Api
 tests/                           characterization tests capturing current behaviour
-docker-compose.yml               gateway, monolith, SQL Server, Jaeger
-IsoTreatment.http                ready-made requests for the whole stack
+docker-compose.yml               gateway, monolith, Treatment, SQL Server, Jaeger
+IsoTreatment.http                requests against the monolith through the gateway
+TreatmentService.http            requests against the Treatment service, and the
+                                 side-by-side pairs that compare it to the monolith
 ```
 
 ## Progress
@@ -59,7 +64,7 @@ IsoTreatment.http                ready-made requests for the whole stack
 - [x] **Phase 1** — containerize the monolith as it is
 - [x] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
 - [x] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
-- [ ] **Phase 4** — the Treatment service
+- [x] **Phase 4** — the Treatment service
 - [ ] **Phase 5** — contract tests comparing old and new responses
 - [ ] **Phase 6** — switch reminder traffic to the Treatment service
 - [ ] **Phase 7** — remove reminder code from the monolith
@@ -87,6 +92,7 @@ Four services come up:
 | --- | --- |
 | `localhost:8080` | the YARP gateway — the address the frontend uses |
 | `localhost:8081` | the monolith directly, for comparing against the gateway |
+| `localhost:8082` | the Treatment service directly — no gateway traffic reaches it yet |
 | `localhost:16686` | Jaeger UI |
 | `localhost:14330` | SQL Server |
 
@@ -111,6 +117,30 @@ ConnectionStrings__IsoSupportDb="Server=localhost,14330;Database=IsoTreatmentPro
 This needs the EF Core tools (`dotnet tool install --global dotnet-ef`). It is a one-off
 step, but it has to be repeated whenever the `mssql-data` volume is removed, because the
 database disappears with it.
+
+### Getting a token
+
+Every reminder endpoint requires a JWT, which the API reads from an HttpOnly cookie named
+`token`. Registering a user through the API will not get you one: registration leaves the
+account unconfirmed and login rejects it until the confirmation mail is answered.
+
+For local work, mint a token directly for a user id that exists in `Users`:
+
+```
+set -a; . ./.env; set +a
+b64u() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+H=$(printf '%s' '{"alg":"HS256","typ":"JWT"}' | b64u)
+P=$(printf '{"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"1","exp":%s,"iss":"isotreatment-users-issuer","aud":"isotreatment-users-audience"}' $(( $(date +%s) + 3600 )) | b64u)
+S=$(printf '%s' "$H.$P" | openssl dgst -sha256 -hmac "$AUTHENTICATION_SIGNING_KEY" -binary | b64u)
+echo "$H.$P.$S"
+```
+
+Paste the result into the `@token` variable at the top of either `.http` file. It lasts an
+hour; a sudden run of 401s usually means it expired.
+
+The claim type is the full URI, not the short `nameid`. The monolith builds its tokens with
+an explicit claim list, which skips the short-name mapping, so a token using `nameid` would
+pass signature validation and then fail to yield a user id.
 
 ### Checking that it works
 
@@ -141,10 +171,13 @@ monolith  GET api/reminder           115.47 ms
 monolith  SELECT [u].[Id] ...          6.29 ms
 ```
 
-That single SQL span is the baseline for Phase 6: reading reminders costs exactly one
-query today, because ReminderService loads them through `Users.Include(u => u.Reminders)`.
-Once the Treatment service serves the same endpoint, the same trace shows whether the
-extracted implementation is equivalent in cost, not just in output.
+That single SQL span is the baseline for Phase 6. Reading reminders costs exactly one
+query today, because ReminderService loads them through `Users.Include(u => u.Reminders)` —
+a join that only works while reminders and users share a database. The Treatment service
+cannot keep that shortcut: it asks whether the user exists through a port that will later
+become a call to Identity, and then reads reminders on its own. The same trace will show
+two queries instead of one. That is the visible price of separating the contexts, not a
+regression, and it is exactly the kind of consequence tracing was put in place to expose.
 
 Tracing is not on the critical path. Stopping the Jaeger container leaves every endpoint
 working; exports fail silently in the background. That is worth knowing both ways — it

@@ -48,6 +48,22 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_SERVICE_NAME=gateway
 
+  treatment:
+    build:
+      context: .
+      dockerfile: TreatmentService/TreatmentService.Api/Dockerfile
+    ports:
+      - "8082:8080"
+    depends_on:
+      monolith.database:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__TreatmentDb=Server=monolith.database,1433;Database=IsoTreatmentProcessSupport;User Id=sa;Password=${MSSQL_SA_PASSWORD};Encrypt=true;TrustServerCertificate=true;
+      - Authentication__SigningKey=${AUTHENTICATION_SIGNING_KEY}
+      - ASPNETCORE_ENVIRONMENT=Production
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=treatment
+
   jaeger:
     image: jaegertracing/jaeger:2.20.0
     ports:

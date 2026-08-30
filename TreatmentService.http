@@ -1,0 +1,141 @@
+@gateway = http://localhost:8080
+@monolith = http://localhost:8081
+@treatment = http://localhost:8082
+@token = PASTE_TOKEN_HERE
+
+### Reminders without a token
+GET {{treatment}}/api/reminder
+
+### Swagger
+GET {{treatment}}/swagger/index.html
+
+### List
+GET {{treatment}}/api/reminder
+Cookie: token={{token}}
+
+### Create
+POST {{treatment}}/api/reminder
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "08:00"
+}
+
+### Get one
+GET {{treatment}}/api/reminder/1
+Cookie: token={{token}}
+
+### Update
+PUT {{treatment}}/api/reminder/1
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "21:15"
+}
+
+### Delete
+DELETE {{treatment}}/api/reminder/1
+Cookie: token={{token}}
+
+### Contract — list, monolith
+GET {{monolith}}/api/reminder
+Cookie: token={{token}}
+
+### Contract — list, treatment
+GET {{treatment}}/api/reminder
+Cookie: token={{token}}
+
+### Contract — missing id, monolith
+GET {{monolith}}/api/reminder/999999
+Cookie: token={{token}}
+
+### Contract — missing id, treatment
+GET {{treatment}}/api/reminder/999999
+Cookie: token={{token}}
+
+### Contract — update missing id, monolith
+PUT {{monolith}}/api/reminder/999999
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "21:15"
+}
+
+### Contract — update missing id, treatment
+PUT {{treatment}}/api/reminder/999999
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "21:15"
+}
+
+### Contract — delete missing id, monolith
+DELETE {{monolith}}/api/reminder/999999
+Cookie: token={{token}}
+
+### Contract — delete missing id, treatment
+DELETE {{treatment}}/api/reminder/999999
+Cookie: token={{token}}
+
+### Shared database — create through the monolith
+POST {{monolith}}/api/reminder
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "07:45"
+}
+
+### Shared database — create through treatment
+POST {{treatment}}/api/reminder
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "22:10"
+}
+
+### Shared database — read through the monolith
+GET {{monolith}}/api/reminder
+Cookie: token={{token}}
+
+### Shared database — read through treatment
+GET {{treatment}}/api/reminder
+Cookie: token={{token}}
+
+### Gateway — list
+GET {{gateway}}/api/reminder
+Cookie: token={{token}}
+
+### Gateway — create
+POST {{gateway}}/api/reminder
+Content-Type: application/json
+Cookie: token={{token}}
+
+{
+  "time": "09:30"
+}
+
+### Gateway — entries
+GET {{gateway}}/api/entry
+Cookie: token={{token}}
+
+### Gateway — treatment process
+GET {{gateway}}/api/treatment-process
+Cookie: token={{token}}
+
+### Malformed token
+GET {{treatment}}/api/reminder
+Cookie: token=not.a.jwt
+
+### Token in the Authorization header — treatment
+GET {{treatment}}/api/reminder
+Authorization: Bearer {{token}}
+
+### Token in the Authorization header — monolith
+GET {{monolith}}/api/reminder
+Authorization: Bearer {{token}}

@@ -51,7 +51,7 @@ IsoTreatmentProcessSupportAPI/   the monolith
 ApiGateway/                      the YARP reverse proxy
 TreatmentService/                the extracted service — Domain, Application,
                                  Infrastructure, Api
-tests/                           characterization tests capturing current behaviour
+tests/                           characterization tests and contract tests
 docker-compose.yml               gateway, monolith, Treatment, SQL Server, Jaeger
 IsoTreatment.http                requests against the monolith through the gateway
 TreatmentService.http            requests against the Treatment service, and the
@@ -65,7 +65,7 @@ TreatmentService.http            requests against the Treatment service, and the
 - [x] **Phase 2** — put YARP in front, with all traffic still reaching the monolith
 - [x] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
 - [x] **Phase 4** — the Treatment service
-- [ ] **Phase 5** — contract tests comparing old and new responses
+- [x] **Phase 5** — contract tests comparing old and new responses
 - [ ] **Phase 6** — switch reminder traffic to the Treatment service
 - [ ] **Phase 7** — remove reminder code from the monolith
 
@@ -186,11 +186,48 @@ no clue about why.
 
 ## Running the tests
 
-The characterization tests start their own throwaway SQL Server container, independent of
-the Compose stack, so Docker has to be running:
+There are two suites with different prerequisites. Running `dotnet test` on the whole
+solution runs both, which fails confusingly when the stack is down — prefer naming the
+project you want.
+
+### Characterization tests
+
+These pin down how the monolith behaves and were written before anything was migrated.
+They start their own throwaway SQL Server through Testcontainers, so they need Docker but
+not the Compose stack:
 
 ```
 dotnet test tests/IsoTreatmentProcessSupportAPI.CharacterizationTests
 ```
+
+### Contract tests
+
+These prove the Treatment service answers exactly like the monolith. They talk to both
+services over HTTP and reference neither project, so they need the stack running and the
+secrets exported:
+
+```
+docker compose up -d
+set -a; . ./.env; set +a
+dotnet test tests/IsoTreatment.ContractTests
+```
+
+`set -a` marks everything assigned afterwards for export, `. ./.env` runs the file in the
+current shell, and `set +a` turns exporting off again. Without it the values would be shell
+variables only, invisible to the `dotnet test` child process. Compose does not need this —
+it reads `.env` by itself.
+
+The tests seed a dedicated user per test case and delete it afterwards, so they can be run
+repeatedly against a database that already holds data. If a service or the database is
+unreachable, they fail with a message saying so rather than a wall of timeouts.
+
+Addresses and credentials can be overridden with `CONTRACT_TESTS_MONOLITH_URL`,
+`CONTRACT_TESTS_TREATMENT_URL` and `CONTRACT_TESTS_DB_HOST`.
+
+One test asserts that a token in the `Authorization` header returns 500 from the monolith
+and 200 from the Treatment service. That divergence is deliberate: the monolith
+authenticates from the header and then re-reads the cookie, passing null onward. It is
+asserted rather than skipped, so that it stays a documented decision instead of an
+unnoticed drift.
 
 Fuller technical documentation follows as the implementation progresses.

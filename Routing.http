@@ -1,0 +1,65 @@
+@gateway = http://localhost:8080
+@monolith = http://localhost:8081
+@treatment = http://localhost:8082
+@token = PASTE_TOKEN_HERE
+@reminderId = 1010
+
+### Fingerprint — monolith direct, expect 500
+GET {{monolith}}/api/reminder
+Authorization: Bearer {{token}}
+
+### Fingerprint — treatment direct, expect 200
+GET {{treatment}}/api/reminder
+Authorization: Bearer {{token}}
+
+### Gateway, no canary — expect 500, served by the monolith
+GET {{gateway}}/api/reminder
+Authorization: Bearer {{token}}
+
+### Gateway, canary — expect 200, served by treatment
+GET {{gateway}}/api/reminder
+Authorization: Bearer {{token}}
+X-Canary: treatment
+
+### Gateway, no canary, one reminder — expect 500, monolith
+GET {{gateway}}/api/reminder/{{reminderId}}
+Authorization: Bearer {{token}}
+
+### Gateway, canary, one reminder — expect 200, treatment
+GET {{gateway}}/api/reminder/{{reminderId}}
+Authorization: Bearer {{token}}
+X-Canary: treatment
+
+### Gateway, canary, user info — expect 500, still the monolith
+GET {{gateway}}/api/user/info
+Authorization: Bearer {{token}}
+X-Canary: treatment
+
+### Gateway, canary, entries — expect 500, still the monolith
+GET {{gateway}}/api/entry
+Authorization: Bearer {{token}}
+X-Canary: treatment
+
+### Gateway, canary, treatment process — expect 500, still the monolith
+GET {{gateway}}/api/treatment-process
+Authorization: Bearer {{token}}
+X-Canary: treatment
+
+### Real path, no canary — cookie, monolith
+GET {{gateway}}/api/reminder
+Cookie: token={{token}}
+
+### Real path, canary — cookie, treatment
+GET {{gateway}}/api/reminder
+Cookie: token={{token}}
+X-Canary: treatment
+
+### Real path, canary, create — cookie, treatment
+POST {{gateway}}/api/reminder
+Content-Type: application/json
+Cookie: token={{token}}
+X-Canary: treatment
+
+{
+  "time": "08:00"
+}

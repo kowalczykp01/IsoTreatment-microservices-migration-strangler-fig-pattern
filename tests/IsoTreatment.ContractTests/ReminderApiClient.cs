@@ -34,13 +34,25 @@ public sealed class ReminderApiClient : IDisposable
     public Task<RecordedResponse> GetAllWithBearerHeaderAsync() =>
         SendAsync(HttpMethod.Get, "/api/reminder", body: null, useAuthorizationHeader: true);
 
+    public Task<RecordedResponse> GetAllWithCanaryAsync() =>
+        SendAsync(HttpMethod.Get, "/api/reminder", canaryValue: CanaryHeader.TreatmentValue);
+
+    public Task<RecordedResponse> GetWithBearerHeaderAsync(string path, string? canaryValue = null) =>
+        SendAsync(HttpMethod.Get, path, body: null, useAuthorizationHeader: true, canaryValue: canaryValue);
+
     private async Task<RecordedResponse> SendAsync(
         HttpMethod method,
         string path,
         string? body = null,
-        bool useAuthorizationHeader = false)
+        bool useAuthorizationHeader = false,
+        string? canaryValue = null)
     {
         using var request = new HttpRequestMessage(method, path);
+
+        if (canaryValue is not null)
+        {
+            request.Headers.Add(CanaryHeader.Name, canaryValue);
+        }
 
         if (_token is not null)
         {

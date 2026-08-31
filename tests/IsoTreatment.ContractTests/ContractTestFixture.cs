@@ -14,6 +14,7 @@ public sealed class ContractTestFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        await EnsureReachableAsync(ServiceUnderTest.Gateway);
         await EnsureReachableAsync(ServiceUnderTest.Monolith);
         await EnsureReachableAsync(ServiceUnderTest.Treatment);
         await EnsureDatabaseReachableAsync();
@@ -41,6 +42,7 @@ public sealed class ContractTestFixture : IAsyncLifetime
 
     public string BaseAddressOf(string service) => service switch
     {
+        ServiceUnderTest.Gateway => Settings.GatewayBaseAddress,
         ServiceUnderTest.Monolith => Settings.MonolithBaseAddress,
         ServiceUnderTest.Treatment => Settings.TreatmentBaseAddress,
         _ => throw new ArgumentOutOfRangeException(nameof(service), service, "Unknown service.")

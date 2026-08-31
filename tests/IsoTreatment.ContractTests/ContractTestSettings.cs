@@ -2,6 +2,7 @@ namespace IsoTreatment.ContractTests;
 
 public sealed class ContractTestSettings
 {
+    public string GatewayBaseAddress { get; }
     public string MonolithBaseAddress { get; }
     public string TreatmentBaseAddress { get; }
     public string ConnectionString { get; }
@@ -10,6 +11,7 @@ public sealed class ContractTestSettings
     public string Audience { get; }
 
     private ContractTestSettings(
+        string gatewayBaseAddress,
         string monolithBaseAddress,
         string treatmentBaseAddress,
         string connectionString,
@@ -17,6 +19,7 @@ public sealed class ContractTestSettings
         string issuer,
         string audience)
     {
+        GatewayBaseAddress = gatewayBaseAddress;
         MonolithBaseAddress = monolithBaseAddress;
         TreatmentBaseAddress = treatmentBaseAddress;
         ConnectionString = connectionString;
@@ -33,6 +36,7 @@ public sealed class ContractTestSettings
         var databaseHost = Environment.GetEnvironmentVariable("CONTRACT_TESTS_DB_HOST") ?? "localhost,14330";
 
         return new ContractTestSettings(
+            Environment.GetEnvironmentVariable("CONTRACT_TESTS_GATEWAY_URL") ?? "http://localhost:8080",
             Environment.GetEnvironmentVariable("CONTRACT_TESTS_MONOLITH_URL") ?? "http://localhost:8081",
             Environment.GetEnvironmentVariable("CONTRACT_TESTS_TREATMENT_URL") ?? "http://localhost:8082",
             $"Server={databaseHost};Database=IsoTreatmentProcessSupport;User Id=sa;"

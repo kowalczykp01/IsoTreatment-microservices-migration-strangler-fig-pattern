@@ -19,6 +19,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task GetAll_ReturnsEmptyArray_ForUserWithoutReminders(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -35,6 +36,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task GetAll_ReturnsNotFound_WhenUserRowIsMissing(string service)
     {
         using var client = _fixture.ClientFor(service, MissingUserId);
@@ -50,6 +52,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Add_ReturnsOkWithoutLocation_AndTimeFormattedAsHoursAndMinutes(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -67,6 +70,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task FullCycle_CreateReadUpdateDelete_BehavesIdentically(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -98,6 +102,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Get_ReturnsNotFound_WhenReminderDoesNotExist(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -114,6 +119,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Update_ReturnsNotFound_WhenReminderDoesNotExist(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -130,6 +136,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Delete_ReturnsNotFound_WhenReminderDoesNotExist(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -146,6 +153,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Reminders_OwnedByAnotherUser_AreInvisible(string service)
     {
         var ownerId = await _fixture.SeedUserAsync();
@@ -175,6 +183,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Requests_WithoutToken_AreUnauthorized(string service)
     {
         using var client = _fixture.AnonymousClientFor(service);
@@ -188,6 +197,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Requests_WithMalformedToken_AreUnauthorized(string service)
     {
         using var client = _fixture.ClientWithRawTokenFor(service, "not.a.jwt");
@@ -201,6 +211,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Requests_WithTokenSignedByAnotherKey_AreUnauthorized(string service)
     {
         var userId = await _fixture.SeedUserAsync();
@@ -217,6 +228,7 @@ public sealed class ReminderContractTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task Requests_WithTokenFromAnotherIssuer_AreUnauthorized(string service)
     {
         var userId = await _fixture.SeedUserAsync();

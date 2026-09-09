@@ -9,11 +9,13 @@ public sealed class ReminderApiClient : IDisposable
 {
     private readonly HttpClient _client;
     private readonly string? _token;
+    private readonly bool _alwaysSendCanaryHeader;
 
-    public ReminderApiClient(string baseAddress, string? token)
+    public ReminderApiClient(string baseAddress, string? token, bool alwaysSendCanaryHeader = false)
     {
         _client = new HttpClient { BaseAddress = new Uri(baseAddress), Timeout = TimeSpan.FromSeconds(30) };
         _token = token;
+        _alwaysSendCanaryHeader = alwaysSendCanaryHeader;
     }
 
     public Task<RecordedResponse> GetAllAsync() =>
@@ -49,9 +51,11 @@ public sealed class ReminderApiClient : IDisposable
     {
         using var request = new HttpRequestMessage(method, path);
 
-        if (canaryValue is not null)
+        var canary = canaryValue ?? (_alwaysSendCanaryHeader ? CanaryHeader.TreatmentValue : null);
+
+        if (canary is not null)
         {
-            request.Headers.Add(CanaryHeader.Name, canaryValue);
+            request.Headers.Add(CanaryHeader.Name, canary);
         }
 
         if (_token is not null)

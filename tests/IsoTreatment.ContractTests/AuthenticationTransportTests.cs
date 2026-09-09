@@ -13,6 +13,7 @@ public sealed class AuthenticationTransportTests
     [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
+    [InlineData(ServiceUnderTest.GatewayCanary)]
     public async Task TokenInCookie_IsAccepted(string service)
     {
         var userId = await _fixture.SeedUserAsync();

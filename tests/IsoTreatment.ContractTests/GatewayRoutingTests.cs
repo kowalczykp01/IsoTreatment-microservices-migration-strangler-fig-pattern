@@ -63,6 +63,28 @@ public sealed class GatewayRoutingTests
     }
 
     [Fact]
+    public async Task TheGatewayCanaryVariantReachesTheTreatmentService()
+    {
+        var userId = await _fixture.SeedUserAsync();
+        using var client = _fixture.ClientFor(ServiceUnderTest.GatewayCanary, userId);
+
+        var response = await client.GetAllWithBearerHeaderAsync();
+
+        ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Treatment);
+    }
+
+    [Fact]
+    public async Task TheGatewayVariantReachesTheMonolith()
+    {
+        var userId = await _fixture.SeedUserAsync();
+        using var client = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
+
+        var response = await client.GetAllWithBearerHeaderAsync();
+
+        ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Monolith);
+    }
+
+    [Fact]
     public async Task TheCanaryRouteMatchesTheCollectionPathWithNoTrailingSegment()
     {
         var userId = await _fixture.SeedUserAsync();

@@ -66,7 +66,7 @@ TreatmentService.http            requests against the Treatment service, and the
 - [x] **Phase 3** — OpenTelemetry instrumentation exported to Jaeger
 - [x] **Phase 4** — the Treatment service
 - [x] **Phase 5** — contract tests comparing old and new responses
-- [ ] **Phase 6** — switch reminder traffic to the Treatment service
+- [x] **Phase 6** — switch reminder traffic to the Treatment service
 - [ ] **Phase 7** — remove reminder code from the monolith
 
 ## Running the application
@@ -90,9 +90,9 @@ Four services come up:
 
 | Address | What |
 | --- | --- |
-| `localhost:8080` | the YARP gateway — the address the frontend uses |
+| `localhost:8080` | the YARP gateway — the address the frontend uses; reminders now go to the Treatment service, everything else to the monolith |
 | `localhost:8081` | the monolith directly, for comparing against the gateway |
-| `localhost:8082` | the Treatment service directly — no gateway traffic reaches it yet |
+| `localhost:8082` | the Treatment service directly, bypassing the gateway |
 | `localhost:16686` | Jaeger UI |
 | `localhost:14330` | SQL Server |
 
@@ -153,31 +153,74 @@ pass signature validation and then fail to yield a user id.
 A 500 on the last one means the database is unreachable or the schema was never applied.
 That distinction is worth remembering: both cases look identical from the outside.
 
+## Switching the traffic
+
+The gateway holds two routes: a catch-all that forwards to the monolith, and a more
+specific one for `/api/reminder` that forwards to the Treatment service. Adding the second
+route is the whole of the migration as far as the running system is concerned — no service
+was redeployed and no line of either service changed.
+
+It landed in two steps. First the route carried an extra condition on an `X-Canary` header,
+so it applied only to requests that asked for it; no client sends that header, so nothing
+moved while the routing itself was verified on the real path, through the real gateway,
+with real cookies and tracing. Only once the full contract had been proven over that path
+was the condition removed and the route made unconditional.
+
+The gateway's `appsettings.json` is mounted as a volume rather than baked into the image,
+and the gateway runs with a polling file watcher, because bind-mounted files do not deliver
+change events into a container on macOS. Together this means flipping the rule takes
+effect within seconds, with no restart:
+
+```
+switching to the Treatment service   1 s
+rolling back to the monolith         5-8 s
+```
+
+Rolling back is editing the same file back. That is the property the pattern is chosen for:
+the decision is reversible at the cost of a configuration change, not a deployment.
+
+One caveat found the hard way — mounting a single file binds it to an inode, so anything
+that replaces the file instead of writing in place, `git checkout` included, silently
+detaches the container from it. Recreating the gateway container restores the mount.
+
 ## Distributed tracing
 
-The gateway and the monolith are instrumented with OpenTelemetry and export over OTLP to
-Jaeger at `localhost:16686`. Service names and the exporter endpoint come from environment
-variables in the Compose file — the OpenTelemetry SDK reads `OTEL_SERVICE_NAME` and
+All three services are instrumented with OpenTelemetry and export over OTLP to Jaeger at
+`localhost:16686`. Service names and the exporter endpoint come from environment variables
+in the Compose file — the OpenTelemetry SDK reads `OTEL_SERVICE_NAME` and
 `OTEL_EXPORTER_OTLP_ENDPOINT` by itself, so neither name appears anywhere in application
 code.
 
-Send a request through the gateway and one trace should span both services and the SQL
-query underneath:
+Instrumentation went in before the Treatment service existed, on purpose: it captured what
+a reminder request looked like while the monolith still served it, so the same request
+could be compared after the switch. Before:
 
 ```
-gateway   GET {**catch-all}          117.38 ms
-gateway   GET                        116.50 ms
-monolith  GET api/reminder           115.47 ms
-monolith  SELECT [u].[Id] ...          6.29 ms
+gateway   GET {**catch-all}        2.66 ms
+gateway   GET                      2.43 ms
+monolith  GET api/reminder         2.02 ms
+monolith  SELECT [u].[Id] ...      1.10 ms
 ```
 
-That single SQL span is the baseline for Phase 6. Reading reminders costs exactly one
-query today, because ReminderService loads them through `Users.Include(u => u.Reminders)` —
-a join that only works while reminders and users share a database. The Treatment service
-cannot keep that shortcut: it asks whether the user exists through a port that will later
-become a call to Identity, and then reads reminders on its own. The same trace will show
-two queries instead of one. That is the visible price of separating the contexts, not a
-regression, and it is exactly the kind of consequence tracing was put in place to expose.
+After:
+
+```
+gateway   GET /api/reminder/{**catch-all}   6.74 ms
+gateway   GET                               6.43 ms
+treatment GET api/reminder                  5.89 ms
+treatment SELECT [Users]                    2.11 ms
+treatment SELECT [Reminders]                1.33 ms
+```
+
+The client sent the same request and got the same response both times. What changed is
+visible only here: a different service in the middle, and two SQL queries where there was
+one. The monolith managed with a single query because ReminderService loads reminders
+through `Users.Include(u => u.Reminders)` — a join that only works while reminders and
+users share a database. The Treatment service cannot keep that shortcut: it asks whether
+the user exists through a port that will later become a call to Identity, then reads
+reminders on its own. The extra round trip is the visible price of separating the contexts,
+not a regression, and it is exactly the kind of consequence tracing was put in place to
+expose.
 
 Tracing is not on the critical path. Stopping the Jaeger container leaves every endpoint
 working; exports fail silently in the background. That is worth knowing both ways — it
@@ -223,6 +266,11 @@ unreachable, they fail with a message saying so rather than a wall of timeouts.
 
 Addresses and credentials can be overridden with `CONTRACT_TESTS_MONOLITH_URL`,
 `CONTRACT_TESTS_TREATMENT_URL` and `CONTRACT_TESTS_DB_HOST`.
+
+The suite runs against three base addresses: the monolith, the Treatment service and the
+gateway. The gateway is the production path, so the same assertions have to hold there
+whichever service is behind it — they passed before the switch, when the gateway reached
+the monolith, and after it, when it reaches the Treatment service.
 
 One test asserts that a token in the `Authorization` header returns 500 from the monolith
 and 200 from the Treatment service. That divergence is deliberate: the monolith

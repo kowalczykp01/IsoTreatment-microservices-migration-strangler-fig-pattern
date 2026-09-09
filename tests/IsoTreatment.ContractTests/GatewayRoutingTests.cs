@@ -26,22 +26,7 @@ public sealed class GatewayRoutingTests
     [InlineData("/api/user/info")]
     [InlineData("/api/entry")]
     [InlineData("/api/treatment-process")]
-    public async Task PathsOutsideRemindersAreAlwaysServedByTheMonolith(string path)
-    {
-        var userId = await _fixture.SeedUserAsync();
-        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
-
-        var withoutCanary = await gateway.GetWithBearerHeaderAsync(path);
-        var withCanary = await gateway.GetWithBearerHeaderAsync(path, CanaryHeader.TreatmentValue);
-
-        ServiceFingerprint.FromBearerHeaderResponse(withoutCanary).Should().Be(RespondingService.Monolith);
-        ServiceFingerprint.FromBearerHeaderResponse(withCanary).Should().Be(RespondingService.Monolith);
-    }
-
-    [Theory]
-    [InlineData("/api/reminder")]
-    [InlineData("/api/reminder/999999")]
-    public async Task RemindersWithoutTheCanaryHeaderAreServedByTheMonolith(string path)
+    public async Task PathsOutsideRemindersAreStillServedByTheMonolith(string path)
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
@@ -52,40 +37,46 @@ public sealed class GatewayRoutingTests
     }
 
     [Fact]
-    public async Task RemindersWithTheCanaryHeaderAreServedByTheTreatmentService()
+    public async Task TheReminderCollectionIsServedByTheTreatmentService()
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
 
-        var response = await gateway.GetWithBearerHeaderAsync("/api/reminder", CanaryHeader.TreatmentValue);
+        var response = await gateway.GetWithBearerHeaderAsync("/api/reminder");
 
         ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Treatment);
     }
 
     [Fact]
-    public async Task TheGatewayCanaryVariantReachesTheTreatmentService()
+    public async Task ASingleReminderIsServedByTheTreatmentService()
     {
         var userId = await _fixture.SeedUserAsync();
-        using var client = _fixture.ClientFor(ServiceUnderTest.GatewayCanary, userId);
+        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
+        using var treatment = _fixture.ClientFor(ServiceUnderTest.Treatment, userId);
 
-        var response = await client.GetAllWithBearerHeaderAsync();
+        var created = await treatment.AddAsync("08:00");
+        var id = int.Parse(System.Text.RegularExpressions.Regex.Match(created.Body, "\"id\":([0-9]+)").Groups[1].Value);
+
+        var response = await gateway.GetWithBearerHeaderAsync($"/api/reminder/{id}");
 
         ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Treatment);
     }
 
     [Fact]
-    public async Task TheGatewayVariantReachesTheMonolith()
+    public async Task TheCanaryHeaderNoLongerChangesRouting()
     {
         var userId = await _fixture.SeedUserAsync();
-        using var client = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
+        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
 
-        var response = await client.GetAllWithBearerHeaderAsync();
+        var without = await gateway.GetWithBearerHeaderAsync("/api/reminder");
+        var with = await gateway.GetWithBearerHeaderAsync("/api/reminder", CanaryHeader.TreatmentValue);
 
-        ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Monolith);
+        ServiceFingerprint.FromBearerHeaderResponse(without).Should().Be(RespondingService.Treatment);
+        ServiceFingerprint.FromBearerHeaderResponse(with).Should().Be(RespondingService.Treatment);
     }
 
     [Fact]
-    public async Task TheCanaryRouteMatchesTheCollectionPathWithNoTrailingSegment()
+    public async Task TheReminderRouteMatchesTheCollectionPathWithNoTrailingSegment()
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
@@ -93,7 +84,7 @@ public sealed class GatewayRoutingTests
 
         await treatment.AddAsync("08:00");
 
-        var throughGateway = await gateway.GetAllWithCanaryAsync();
+        var throughGateway = await gateway.GetAllAsync();
         var direct = await treatment.GetAllAsync();
 
         throughGateway.Should().BeEquivalentTo(direct);

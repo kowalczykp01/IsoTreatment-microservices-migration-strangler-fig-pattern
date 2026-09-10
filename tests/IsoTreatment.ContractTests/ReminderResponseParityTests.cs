@@ -15,73 +15,70 @@ public sealed class ReminderResponseParityTests
     private static RecordedResponse WithoutIds(RecordedResponse response) =>
         response with { Body = Regex.Replace(response.Body, "\"id\":[0-9]+", "\"id\":N") };
 
-    private async Task<(RecordedResponse Monolith, RecordedResponse Treatment)> AgainstBothAsync(
+    private async Task<(RecordedResponse Direct, RecordedResponse ThroughGateway)> BothWaysAsync(
         Func<ReminderApiClient, Task<RecordedResponse>> request)
     {
-        var monolithUserId = await _fixture.SeedUserAsync();
-        var treatmentUserId = await _fixture.SeedUserAsync();
+        var directUserId = await _fixture.SeedUserAsync();
+        var gatewayUserId = await _fixture.SeedUserAsync();
 
-        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, monolithUserId);
-        using var treatment = _fixture.ClientFor(ServiceUnderTest.Treatment, treatmentUserId);
+        using var direct = _fixture.ClientFor(ServiceUnderTest.Treatment, directUserId);
+        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, gatewayUserId);
 
-        return (await request(monolith), await request(treatment));
+        return (await request(direct), await request(gateway));
     }
 
     [Fact]
-    public async Task EmptyList_IsIdentical()
+    public async Task EmptyList_IsIdenticalThroughTheGateway()
     {
-        var (monolith, treatment) = await AgainstBothAsync(client => client.GetAllAsync());
+        var (direct, gateway) = await BothWaysAsync(client => client.GetAllAsync());
 
-        treatment.Should().BeEquivalentTo(monolith);
+        gateway.Should().BeEquivalentTo(direct);
     }
 
     [Fact]
     public async Task CreatedReminder_IsIdenticalApartFromTheGeneratedId()
     {
-        var (monolith, treatment) = await AgainstBothAsync(client => client.AddAsync("08:00"));
+        var (direct, gateway) = await BothWaysAsync(client => client.AddAsync("08:00"));
 
-        WithoutIds(treatment).Should().BeEquivalentTo(WithoutIds(monolith));
+        WithoutIds(gateway).Should().BeEquivalentTo(WithoutIds(direct));
     }
 
     [Fact]
-    public async Task MissingReminder_IsIdentical()
+    public async Task MissingReminder_IsIdenticalThroughTheGateway()
     {
-        var (monolith, treatment) = await AgainstBothAsync(client => client.GetAsync(MissingReminderId));
+        var (direct, gateway) = await BothWaysAsync(client => client.GetAsync(MissingReminderId));
 
-        treatment.Should().BeEquivalentTo(monolith);
+        gateway.Should().BeEquivalentTo(direct);
     }
 
     [Fact]
-    public async Task DeletingMissingReminder_IsIdentical()
+    public async Task DeletingMissingReminder_IsIdenticalThroughTheGateway()
     {
-        var (monolith, treatment) = await AgainstBothAsync(client => client.DeleteAsync(MissingReminderId));
+        var (direct, gateway) = await BothWaysAsync(client => client.DeleteAsync(MissingReminderId));
 
-        treatment.Should().BeEquivalentTo(monolith);
+        gateway.Should().BeEquivalentTo(direct);
     }
 
     [Fact]
-    public async Task UpdatingMissingReminder_IsIdentical()
+    public async Task UpdatingMissingReminder_IsIdenticalThroughTheGateway()
     {
-        var (monolith, treatment) = await AgainstBothAsync(client => client.UpdateAsync(MissingReminderId, "21:15"));
+        var (direct, gateway) = await BothWaysAsync(client => client.UpdateAsync(MissingReminderId, "21:15"));
 
-        treatment.Should().BeEquivalentTo(monolith);
+        gateway.Should().BeEquivalentTo(direct);
     }
 
     [Fact]
-    public async Task BothServicesSeeReeachOthersWrites_BecauseTheyShareOneDatabase()
+    public async Task RemindersWrittenThroughTheGatewayAreVisibleDirectly()
     {
         var userId = await _fixture.SeedUserAsync();
 
-        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
+        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
         using var treatment = _fixture.ClientFor(ServiceUnderTest.Treatment, userId);
 
-        await monolith.AddAsync("07:45");
-        await treatment.AddAsync("22:10");
+        await gateway.AddAsync("07:45");
 
-        var listedByMonolith = await monolith.GetAllAsync();
-        var listedByTreatment = await treatment.GetAllAsync();
+        var listedDirectly = await treatment.GetAllAsync();
 
-        listedByTreatment.Body.Should().Be(listedByMonolith.Body);
-        listedByMonolith.Body.Should().Contain("07:45").And.Contain("22:10");
+        listedDirectly.Body.Should().Contain("07:45");
     }
 }

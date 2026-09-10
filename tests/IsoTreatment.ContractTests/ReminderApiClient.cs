@@ -9,13 +9,10 @@ public sealed class ReminderApiClient : IDisposable
 {
     private readonly HttpClient _client;
     private readonly string? _token;
-    private readonly bool _alwaysSendCanaryHeader;
-
-    public ReminderApiClient(string baseAddress, string? token, bool alwaysSendCanaryHeader = false)
+    public ReminderApiClient(string baseAddress, string? token)
     {
         _client = new HttpClient { BaseAddress = new Uri(baseAddress), Timeout = TimeSpan.FromSeconds(30) };
         _token = token;
-        _alwaysSendCanaryHeader = alwaysSendCanaryHeader;
     }
 
     public Task<RecordedResponse> GetAllAsync() =>
@@ -36,27 +33,16 @@ public sealed class ReminderApiClient : IDisposable
     public Task<RecordedResponse> GetAllWithBearerHeaderAsync() =>
         SendAsync(HttpMethod.Get, "/api/reminder", body: null, useAuthorizationHeader: true);
 
-    public Task<RecordedResponse> GetAllWithCanaryAsync() =>
-        SendAsync(HttpMethod.Get, "/api/reminder", canaryValue: CanaryHeader.TreatmentValue);
-
-    public Task<RecordedResponse> GetWithBearerHeaderAsync(string path, string? canaryValue = null) =>
-        SendAsync(HttpMethod.Get, path, body: null, useAuthorizationHeader: true, canaryValue: canaryValue);
+    public Task<RecordedResponse> GetWithBearerHeaderAsync(string path) =>
+        SendAsync(HttpMethod.Get, path, body: null, useAuthorizationHeader: true);
 
     private async Task<RecordedResponse> SendAsync(
         HttpMethod method,
         string path,
         string? body = null,
-        bool useAuthorizationHeader = false,
-        string? canaryValue = null)
+        bool useAuthorizationHeader = false)
     {
         using var request = new HttpRequestMessage(method, path);
-
-        var canary = canaryValue ?? (_alwaysSendCanaryHeader ? CanaryHeader.TreatmentValue : null);
-
-        if (canary is not null)
-        {
-            request.Headers.Add(CanaryHeader.Name, canary);
-        }
 
         if (_token is not null)
         {

@@ -10,7 +10,6 @@ public sealed class AuthenticationTransportTests
     public AuthenticationTransportTests(ContractTestFixture fixture) => _fixture = fixture;
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task TokenInCookie_IsAccepted(string service)
@@ -23,11 +22,13 @@ public sealed class AuthenticationTransportTests
         response.StatusCode.Should().Be(200);
     }
 
-    [Fact]
-    public async Task TokenInAuthorizationHeader_IsAcceptedByTreatment()
+    [Theory]
+    [InlineData(ServiceUnderTest.Treatment)]
+    [InlineData(ServiceUnderTest.Gateway)]
+    public async Task TokenInAuthorizationHeader_IsAccepted(string service)
     {
         var userId = await _fixture.SeedUserAsync();
-        using var client = _fixture.ClientFor(ServiceUnderTest.Treatment, userId);
+        using var client = _fixture.ClientFor(service, userId);
 
         var response = await client.GetAllWithBearerHeaderAsync();
 
@@ -36,12 +37,12 @@ public sealed class AuthenticationTransportTests
     }
 
     [Fact]
-    public async Task TokenInAuthorizationHeader_CrashesTheMonolith_KnownAndAcceptedDivergence()
+    public async Task TokenInAuthorizationHeader_StillBreaksTheEndpointsLeftInTheMonolith()
     {
         var userId = await _fixture.SeedUserAsync();
-        using var client = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
+        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
 
-        var response = await client.GetAllWithBearerHeaderAsync();
+        var response = await monolith.GetWithBearerHeaderAsync(MonolithOnlyPath.UserInfo);
 
         response.StatusCode.Should().Be(500);
         response.Body.Should().Be("Something went wrong");

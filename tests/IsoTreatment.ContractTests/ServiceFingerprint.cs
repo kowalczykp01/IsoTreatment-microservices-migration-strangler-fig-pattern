@@ -2,10 +2,9 @@ using FluentAssertions;
 
 namespace IsoTreatment.ContractTests;
 
-public static class CanaryHeader
+public static class MonolithOnlyPath
 {
-    public const string Name = "X-Canary";
-    public const string TreatmentValue = "treatment";
+    public const string UserInfo = "/api/user/info";
 }
 
 public enum RespondingService
@@ -24,10 +23,4 @@ public static class ServiceFingerprint
             200 => RespondingService.Treatment,
             _ => RespondingService.Unknown
         };
-
-    public static void ShouldDistinguishServices(RecordedResponse monolith, RecordedResponse treatment)
-    {
-        FromBearerHeaderResponse(monolith).Should().Be(RespondingService.Monolith);
-        FromBearerHeaderResponse(treatment).Should().Be(RespondingService.Treatment);
-    }
 }

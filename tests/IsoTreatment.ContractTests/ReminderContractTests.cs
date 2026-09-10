@@ -16,7 +16,6 @@ public sealed class ReminderContractTests
     private static string WithoutIds(string body) => Regex.Replace(body, "\"id\":[0-9]+", "\"id\":N");
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task GetAll_ReturnsEmptyArray_ForUserWithoutReminders(string service)
@@ -32,7 +31,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task GetAll_ReturnsNotFound_WhenUserRowIsMissing(string service)
@@ -47,7 +45,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Add_ReturnsOkWithoutLocation_AndTimeFormattedAsHoursAndMinutes(string service)
@@ -64,7 +61,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task FullCycle_CreateReadUpdateDelete_BehavesIdentically(string service)
@@ -95,7 +91,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Get_ReturnsNotFound_WhenReminderDoesNotExist(string service)
@@ -111,7 +106,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Update_ReturnsNotFound_WhenReminderDoesNotExist(string service)
@@ -127,7 +121,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Delete_ReturnsNotFound_WhenReminderDoesNotExist(string service)
@@ -143,7 +136,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Reminders_OwnedByAnotherUser_AreInvisible(string service)
@@ -172,7 +164,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Requests_WithoutToken_AreUnauthorized(string service)
@@ -185,7 +176,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Requests_WithMalformedToken_AreUnauthorized(string service)
@@ -198,7 +188,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Requests_WithTokenSignedByAnotherKey_AreUnauthorized(string service)
@@ -214,7 +203,6 @@ public sealed class ReminderContractTests
     }
 
     [Theory]
-    [InlineData(ServiceUnderTest.Monolith)]
     [InlineData(ServiceUnderTest.Treatment)]
     [InlineData(ServiceUnderTest.Gateway)]
     public async Task Requests_WithTokenFromAnotherIssuer_AreUnauthorized(string service)

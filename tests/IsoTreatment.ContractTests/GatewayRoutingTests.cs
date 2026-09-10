@@ -9,24 +9,11 @@ public sealed class GatewayRoutingTests
 
     public GatewayRoutingTests(ContractTestFixture fixture) => _fixture = fixture;
 
-    [Fact]
-    public async Task TheFingerprintTellsTheTwoServicesApart()
-    {
-        var userId = await _fixture.SeedUserAsync();
-
-        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
-        using var treatment = _fixture.ClientFor(ServiceUnderTest.Treatment, userId);
-
-        ServiceFingerprint.ShouldDistinguishServices(
-            await monolith.GetAllWithBearerHeaderAsync(),
-            await treatment.GetAllWithBearerHeaderAsync());
-    }
-
     [Theory]
-    [InlineData("/api/user/info")]
+    [InlineData(MonolithOnlyPath.UserInfo)]
     [InlineData("/api/entry")]
     [InlineData("/api/treatment-process")]
-    public async Task PathsOutsideRemindersAreStillServedByTheMonolith(string path)
+    public async Task PathsOutsideRemindersAreServedByTheMonolith(string path)
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
@@ -37,7 +24,29 @@ public sealed class GatewayRoutingTests
     }
 
     [Fact]
-    public async Task TheReminderCollectionIsServedByTheTreatmentService()
+    public async Task TheMonolithNoLongerServesReminders()
+    {
+        var userId = await _fixture.SeedUserAsync();
+        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
+
+        var response = await monolith.GetAllAsync();
+
+        response.StatusCode.Should().Be(404);
+    }
+
+    [Fact]
+    public async Task TheMonolithStillServesEverythingElse()
+    {
+        var userId = await _fixture.SeedUserAsync();
+        using var monolith = _fixture.ClientFor(ServiceUnderTest.Monolith, userId);
+
+        var response = await monolith.GetWithBearerHeaderAsync(MonolithOnlyPath.UserInfo);
+
+        ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Monolith);
+    }
+
+    [Fact]
+    public async Task RemindersThroughTheGatewayAreServedByTheTreatmentService()
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
@@ -48,35 +57,7 @@ public sealed class GatewayRoutingTests
     }
 
     [Fact]
-    public async Task ASingleReminderIsServedByTheTreatmentService()
-    {
-        var userId = await _fixture.SeedUserAsync();
-        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
-        using var treatment = _fixture.ClientFor(ServiceUnderTest.Treatment, userId);
-
-        var created = await treatment.AddAsync("08:00");
-        var id = int.Parse(System.Text.RegularExpressions.Regex.Match(created.Body, "\"id\":([0-9]+)").Groups[1].Value);
-
-        var response = await gateway.GetWithBearerHeaderAsync($"/api/reminder/{id}");
-
-        ServiceFingerprint.FromBearerHeaderResponse(response).Should().Be(RespondingService.Treatment);
-    }
-
-    [Fact]
-    public async Task TheCanaryHeaderNoLongerChangesRouting()
-    {
-        var userId = await _fixture.SeedUserAsync();
-        using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);
-
-        var without = await gateway.GetWithBearerHeaderAsync("/api/reminder");
-        var with = await gateway.GetWithBearerHeaderAsync("/api/reminder", CanaryHeader.TreatmentValue);
-
-        ServiceFingerprint.FromBearerHeaderResponse(without).Should().Be(RespondingService.Treatment);
-        ServiceFingerprint.FromBearerHeaderResponse(with).Should().Be(RespondingService.Treatment);
-    }
-
-    [Fact]
-    public async Task TheReminderRouteMatchesTheCollectionPathWithNoTrailingSegment()
+    public async Task TheGatewayIsTransparentForReminders()
     {
         var userId = await _fixture.SeedUserAsync();
         using var gateway = _fixture.ClientFor(ServiceUnderTest.Gateway, userId);

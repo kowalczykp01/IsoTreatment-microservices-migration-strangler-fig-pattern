@@ -51,7 +51,7 @@ IsoTreatmentProcessSupportAPI/   the monolith
 ApiGateway/                      the YARP reverse proxy
 TreatmentService/                the extracted service — Domain, Application,
                                  Infrastructure, Api
-tests/                           characterization tests and contract tests
+tests/                           contract tests
 docker-compose.yml               gateway, monolith, Treatment, SQL Server, Jaeger
 IsoTreatment.http                requests against the monolith through the gateway
 TreatmentService.http            requests against the Treatment service, and the
@@ -67,7 +67,7 @@ TreatmentService.http            requests against the Treatment service, and the
 - [x] **Phase 4** — the Treatment service
 - [x] **Phase 5** — contract tests comparing old and new responses
 - [x] **Phase 6** — switch reminder traffic to the Treatment service
-- [ ] **Phase 7** — remove reminder code from the monolith
+- [x] **Phase 7** — remove reminder code from the monolith
 
 ## Running the application
 
@@ -183,6 +183,31 @@ One caveat found the hard way — mounting a single file binds it to an inode, s
 that replaces the file instead of writing in place, `git checkout` included, silently
 detaches the container from it. Recreating the gateway container restores the mount.
 
+## What is left of the monolith
+
+The reminder controller, service, entity, DTOs and the `Reminders` mapping are gone from
+the monolith. It no longer knows the feature exists: `/api/reminder` returns 404 there,
+while `/api/user`, `/api/entry` and `/api/treatment-process` are unchanged. Requests still
+arrive at the same gateway address as before, and the frontend was never touched.
+
+The physical table stayed where it was. Removing the `DbSet` makes EF Core want to drop it
+on the next migration — it scaffolds `DropTable("Reminders")` and warns about data loss —
+so the generated migration was emptied. It records that the monolith's model no longer
+contains reminders without touching the table that the Treatment service now owns.
+
+Two things outlive the code removal and are worth naming rather than hiding. The foreign
+key is still there:
+
+```
+FK_Reminders_Users_UserId : Reminders -> Users, ON DELETE CASCADE
+```
+
+Deleting a user still cascades to their reminders, enforced by a database the monolith no
+longer knows it shares. And the Treatment service still reads the `Users` table to check
+that a user exists. Both disappear together when the databases are split and Identity
+becomes a service of its own — the second one turns into a call over the network, which is
+what the `IUserDirectory` port already anticipates.
+
 ## Distributed tracing
 
 All three services are instrumented with OpenTelemetry and export over OTLP to Jaeger at
@@ -229,24 +254,16 @@ no clue about why.
 
 ## Running the tests
 
-There are two suites with different prerequisites. Running `dotnet test` on the whole
-solution runs both, which fails confusingly when the stack is down — prefer naming the
-project you want.
-
-### Characterization tests
-
-These pin down how the monolith behaves and were written before anything was migrated.
-They start their own throwaway SQL Server through Testcontainers, so they need Docker but
-not the Compose stack:
-
-```
-dotnet test tests/IsoTreatmentProcessSupportAPI.CharacterizationTests
-```
+The characterization tests that opened this migration are gone. They pinned down how the
+monolith served reminders, and the monolith no longer serves them; their expectations live
+on in the contract tests, which assert the same behaviour against the service that took
+over. Being able to delete them without losing coverage is what finishing looks like — they
+remain in the history, up to the commit that removed them.
 
 ### Contract tests
 
-These prove the Treatment service answers exactly like the monolith. They talk to both
-services over HTTP and reference neither project, so they need the stack running and the
+These prove the Treatment service answers exactly like the monolith used to. They talk to
+the services over HTTP and reference no project, so they need the stack running and the
 secrets exported:
 
 ```

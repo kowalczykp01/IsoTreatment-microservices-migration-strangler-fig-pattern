@@ -69,7 +69,6 @@ builder.Services.AddScoped<IValidator<ResetPasswordDto>, ResetPasswordDtoValidat
 builder.Services.AddTransient<IMailkitService, MailkitService>();
 builder.Services.AddTransient<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IReminderService, ReminderService>();
 builder.Services.AddScoped<IEntryService, EntryService>();
 builder.Services.AddScoped<ITreatmentProcessService, TreatmentProcessService>();
 builder.Services.AddScoped<ErrorHandlingMiddleware>();

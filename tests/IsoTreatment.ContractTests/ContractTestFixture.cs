@@ -43,7 +43,6 @@ public sealed class ContractTestFixture : IAsyncLifetime
     public string BaseAddressOf(string service) => service switch
     {
         ServiceUnderTest.Gateway => Settings.GatewayBaseAddress,
-        ServiceUnderTest.GatewayCanary => Settings.GatewayBaseAddress,
         ServiceUnderTest.Monolith => Settings.MonolithBaseAddress,
         ServiceUnderTest.Treatment => Settings.TreatmentBaseAddress,
         _ => throw new ArgumentOutOfRangeException(nameof(service), service, "Unknown service.")
@@ -74,15 +73,13 @@ public sealed class ContractTestFixture : IAsyncLifetime
     }
 
     public ReminderApiClient ClientFor(string service, int userId) =>
-        new(BaseAddressOf(service), CreateToken(userId), UsesCanaryHeader(service));
+        new(BaseAddressOf(service), CreateToken(userId));
 
     public ReminderApiClient AnonymousClientFor(string service) =>
-        new(BaseAddressOf(service), token: null, UsesCanaryHeader(service));
+        new(BaseAddressOf(service), token: null);
 
     public ReminderApiClient ClientWithRawTokenFor(string service, string token) =>
-        new(BaseAddressOf(service), token, UsesCanaryHeader(service));
-
-    private static bool UsesCanaryHeader(string service) => service == ServiceUnderTest.GatewayCanary;
+        new(BaseAddressOf(service), token);
 
     public string CreateToken(int userId, string? signingKey = null, string? issuer = null)
     {
